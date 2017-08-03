@@ -8,3 +8,5 @@ tmp
 covreporter/
 coverage/
 .tern-port
+test_encryption.js
+test_joi_extension.js

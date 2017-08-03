@@ -20,20 +20,20 @@
   },
   "license": "MIT",
   "dependencies": {
-    "async": "1.5.x",
-    "aws-sdk": "2.2.x",
-    "bunyan": "1.5.x",
-    "joi": "5.x.x",
-    "lodash": "4.x.x",
-    "node-uuid": "1.4.x"
+    "async": "^2.5.0",
+    "aws-sdk": "^2.90.0",
+    "bunyan": "^1.8.10",
+    "istanbul": "^0.4.5",
+    "joi": "^10.6.0",
+    "lodash": "^4.17.4",
+    "uuid": "^3.1.0"
   },
   "devDependencies": {
-    "chai": "1.x.x",
-    "istanbul": "^0.3.5",
-    "jscoverage": "^0.5.9",
+    "chai": "^4.1.0",
+    "jscoverage": "^0.6.0",
     "jshint": "2.x.x",
     "jshint-stylish": "2.x.x",
-    "mocha": "2.x.x",
-    "sinon": "1.12.x"
+    "mocha": "^3.4.2",
+    "sinon": "^2.4.1"
   }
 }

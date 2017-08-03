@@ -1,18 +1,25 @@
 'use strict';
 
-var vogels = require('../../index'),
-    chai   = require('chai'),
-    expect = chai.expect,
-    async  = require('async'),
-    _      = require('lodash'),
-    helper = require('../test-helper'),
-    uuid   = require('node-uuid'),
-    Joi    = require('joi');
+const vogels = require('../../index');
+const chai   = require('chai');
+const expect = chai.expect;
+const should = chai.should();
+const async  = require('async');
+const _      = require('lodash');
+const helper = require('../test-helper');
+const uuid   = require('uuid');
+const Joi    = require('joi');
+
+/* global describe,before,it,beforeEach */
+
+const v4 = function() {
+  return uuid.v4();
+};
 
 chai.should();
 
-var User, Tweet, Movie, DynamicKeyModel; // models
-var internals = {};
+let User, Tweet, Movie, DynamicKeyModel; // models
+const internals = {};
 
 internals.userId = function (n) {
   return 'userid-' + n;
@@ -21,10 +28,9 @@ internals.userId = function (n) {
 internals.loadSeedData = function (callback) {
   callback = callback || _.noop;
 
-  async.parallel([
-    function (callback) {
-    async.times(15, function(n, next) {
-      var roles = ['user'];
+  const createUsers = function(callback) {
+    async.timesSeries(15, function(n, next) {
+      let roles = ['user'];
       if(n % 3 === 0) {
         roles = ['admin', 'editor'];
       } else if (n %5 === 0) {
@@ -32,27 +38,43 @@ internals.loadSeedData = function (callback) {
       }
 
       User.create({id : internals.userId(n), email: 'test' + n + '@example.com', name : 'Test ' + n %3, age: n +10, roles : roles}, next);
-    }, callback);
-  },
-  function (callback) {
-    async.times(15 * 5, function(n, next) {
-      var userId = internals.userId( n %5);
-      var p = {UserId : userId, content: 'I love tweeting, in fact Ive tweeted ' + n + ' times', num : n};
-      if(n %3 === 0 ) {
+    }, function(error) {
+      if (error) {
+        callback(error);
+      } else {
+        callback(void(0), 'DONE');
+      }
+    });
+  };
+
+  const createTweets = function(callback) {
+    async.timesSeries(15 * 5, function(n, next) {
+      const userId = internals.userId( n %5);
+      const p = {UserId : userId, content: 'I love tweeting, in fact Ive tweeted ' + n + ' times', num : n};
+      if(n % 3 === 0 ) {
         p.tag = '#test';
       }
 
-      return Tweet.create(p, next);
-    }, callback);
-  },
-  function (callback) {
-    async.times(10, function(n, next) {
-      var director = { firstName : 'Steven', lastName : 'Spielberg the ' + n, titles : ['Producer', 'Writer', 'Director']};
-      var actors = [
+      return Tweet.create(p, function(error) {
+        next(error);
+      });
+    }, function(error) {
+      if (error) {
+        callback(error);
+      } else {
+        callback(void(0), 'DONE');
+      }
+    });
+  };
+
+  const createMovies = function(callback) {
+    async.timesSeries(10, function(n, next) {
+      const director = { firstName : 'Steven', lastName : 'Spielberg the ' + n, titles : ['Producer', 'Writer', 'Director']};
+      const actors = [
         { firstName : 'Tom', lastName : 'Hanks', titles : ['Producer', 'Actor', 'Soundtrack']}
       ];
 
-      var tags = ['tag ' + n];
+      const tags = ['tag ' + n];
 
       if(n %3 === 0) {
         actors.push({ firstName : 'Rex', lastName : 'Ryan', titles : ['Actor', 'Head Coach']});
@@ -65,9 +87,21 @@ internals.loadSeedData = function (callback) {
       }
 
       Movie.create({title : 'Movie ' + n, releaseYear : 2001 + n, actors : actors, director : director, tags: tags}, next);
-    }, callback);
-  },
-  ], callback);
+    }, function(error) {
+      if (error) {
+        callback(error);
+      } else {
+        callback(void(0), 'DONE');
+      }
+    });
+
+  };
+
+  async.series({
+    users : createUsers,
+    tweets : createTweets,
+    movies : createMovies
+  }, callback);
 };
 
 describe('Vogels Integration Tests', function() {
@@ -79,7 +113,7 @@ describe('Vogels Integration Tests', function() {
     User = vogels.define('vogels-int-test-user', {
       hashKey : 'id',
       schema : {
-        id            : Joi.string().required().default(uuid.v4),
+        id            : Joi.string().required().default(v4, 'a v4 uuid'),
         email         : Joi.string().required(),
         name          : Joi.string().allow(''),
         age           : Joi.number().min(10),
@@ -104,7 +138,8 @@ describe('Vogels Integration Tests', function() {
         content           : Joi.string(),
         num               : Joi.number(),
         tag               : Joi.string(),
-        PublishedDateTime : Joi.date().default(Date.now)
+        // PublishedDateTime : Joi.date().default(Date.now, 'current time')
+        PublishedDateTime : Joi.date().timestamp().default(Date.now, 'current time')
       },
       indexes : [
         { hashKey : 'UserId', rangeKey : 'PublishedDateTime', type : 'local', name : 'PublishedDateTimeIndex'}
@@ -124,7 +159,7 @@ describe('Vogels Integration Tests', function() {
           lastName  : Joi.string(),
           titles    : Joi.array()
         }),
-        actors : Joi.array().includes(Joi.object().keys({
+        actors : Joi.array().items(Joi.object().keys({
           firstName : Joi.string(),
           lastName  : Joi.string(),
           titles    : Joi.array()
@@ -142,7 +177,7 @@ describe('Vogels Integration Tests', function() {
     async.series([
       async.apply(vogels.createTables.bind(vogels)),
       function (callback) {
-        var items = [{fiz : 3, buz : 5, fizbuz: 35}];
+        const items = [{fiz : 3, buz : 5, fizbuz: 35}];
         User.create({id : '123456789', email : 'some@user.com', age: 30, settings : {nickname : 'thedude'}, things : items}, callback);
       },
       function (callback) {
@@ -164,8 +199,8 @@ describe('Vogels Integration Tests', function() {
           version : 2
         }
       }, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get()).to.have.keys(['id', 'email', 'age', 'roles', 'acceptedTerms', 'settings']);
         return done();
       });
@@ -182,31 +217,31 @@ describe('Vogels Integration Tests', function() {
           version : 2
         }
       }, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get()).to.have.keys(['id', 'email', 'age', 'roles', 'acceptedTerms', 'settings']);
         return done();
       });
     });
 
     it('should return condition exception when using ConditionExpression', function(done) {
-      var item = { email : 'test123@test.com', age : 33, roles : ['user'] };
+      const item = { email : 'test123@test.com', age : 33, roles : ['user'] };
 
       User.create(item, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get('email')).to.eql('test123@test.com');
 
-        var params = {};
+        const params = {};
         params.ConditionExpression = '#i <> :x';
         params.ExpressionAttributeNames = {'#i' : 'id'};
         params.ExpressionAttributeValues = {':x' : acc.get('id')};
 
-        var item2 = _.merge(item, {id : acc.get('id')});
+        const item2 = _.merge(item, {id : acc.get('id')});
         User.create(item2, params, function (error, acc) {
-          expect(error).to.exist;
+          should.exist(error);
           expect(error.code).to.eql('ConditionalCheckFailedException');
-          expect(acc).to.not.exist;
+          should.not.exist(acc);
 
           return done();
         });
@@ -214,20 +249,20 @@ describe('Vogels Integration Tests', function() {
     });
 
     it('should return condition exception when using expected shorthand', function(done) {
-      var item = { email : 'test444@test.com', age : 33, roles : ['user'] };
+      const item = { email : 'test444@test.com', age : 33, roles : ['user'] };
 
       User.create(item, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get('email')).to.eql('test444@test.com');
 
-        var opts = {expected : {email : 'foo@bar.com'}};
+        const opts = {expected : {email : 'foo@bar.com'}};
 
-        var item2 = _.merge(item, {id : acc.get('id')});
+        const item2 = _.merge(item, {id : acc.get('id')});
         User.create(item2, opts, function (error, acc) {
-          expect(error).to.exist;
+          should.exist(error);
           expect(error.code).to.eql('ConditionalCheckFailedException');
-          expect(acc).to.not.exist;
+          should.not.exist(acc);
 
           return done();
         });
@@ -235,17 +270,17 @@ describe('Vogels Integration Tests', function() {
     });
 
     it('should return condition exception when using overwrite shorthand', function(done) {
-      var item = { email : 'testOverwrite@test.com', age : 20};
+      const item = { email : 'testOverwrite@test.com', age : 20};
 
       User.create(item, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
 
-        var item2 = _.merge(item, {id : acc.get('id')});
+        const item2 = _.merge(item, {id : acc.get('id')});
         User.create(item2, {overwrite : false}, function (error, acc) {
-          expect(error).to.exist;
+          should.exist(error);
           expect(error.code).to.eql('ConditionalCheckFailedException');
-          expect(acc).to.not.exist;
+          should.not.exist(acc);
 
           return done();
         });
@@ -259,20 +294,20 @@ describe('Vogels Integration Tests', function() {
         children : ['sam', 'steve', 'sarah', 'sally'],
         settings : { nickname : 'Tester', info : { color : 'green', age : 19 } }
       }, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get()).to.have.keys(['id', 'name', 'children', 'settings']);
         return done();
       });
     });
 
     it('should create multiple items at once', function (done) {
-      var item = { email : 'testMulti1@test.com', age : 10};
-      var item2 = { email : 'testMulti2@test.com', age : 20};
-      var item3 = { email : 'testMulti3@test.com', age : 30};
+      const item = { email : 'testMulti1@test.com', age : 10};
+      const item2 = { email : 'testMulti2@test.com', age : 20};
+      const item3 = { email : 'testMulti3@test.com', age : 30};
 
       User.create([item, item2, item3], function (err, accounts) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(accounts).to.exist;
         expect(accounts).to.have.length(3);
 
@@ -284,8 +319,8 @@ describe('Vogels Integration Tests', function() {
   describe('#get', function () {
     it('should get item by hash key', function(done) {
       User.get({ id : '123456789'}, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get()).to.have.keys(['id', 'email', 'age', 'roles', 'acceptedTerms', 'settings', 'things']);
         return done();
       });
@@ -293,8 +328,8 @@ describe('Vogels Integration Tests', function() {
 
     it('should get return selected attributes AttributesToGet param', function(done) {
       User.get({ id : '123456789'},{AttributesToGet : ['email', 'age']}, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get()).to.have.keys(['email', 'age']);
         return done();
       });
@@ -302,8 +337,8 @@ describe('Vogels Integration Tests', function() {
 
     it('should get return selected attributes using ProjectionExpression param', function(done) {
       User.get({ id : '123456789'},{ProjectionExpression : 'email, age, settings.nickname'}, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get()).to.have.keys(['email', 'age', 'settings']);
         expect(acc.get('settings').nickname).to.exist;
         return done();
@@ -319,8 +354,8 @@ describe('Vogels Integration Tests', function() {
         id : '123456789',
         roles  : {$add : 'tester'}
       }, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get()).to.have.keys(['id', 'email', 'age', 'roles', 'acceptedTerms', 'settings', 'things']);
         expect(acc.get('roles').sort()).to.eql(['tester', 'user']);
 
@@ -330,8 +365,8 @@ describe('Vogels Integration Tests', function() {
 
     it('should remove name attribute from user record when set to empty string', function(done) {
       User.update({ id : '9999', name : ''}, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
 
         expect(acc.get()).to.have.keys(['id', 'email', 'age', 'roles', 'acceptedTerms']);
         return done();
@@ -340,8 +375,8 @@ describe('Vogels Integration Tests', function() {
 
     it('should update age using expected value', function(done) {
       User.update({ id : '9999', age : 100}, {expected: {age: 99}}, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
 
         expect(acc.get('age')).to.eql(100);
         return done();
@@ -350,8 +385,8 @@ describe('Vogels Integration Tests', function() {
 
     it('should update email using expected that an email already exists', function(done) {
       User.update({ id : '9999', email : 'new9999@test.com'}, {expected: {email: {Exists : true}}}, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
 
         expect(acc.get('email')).to.eql('new9999@test.com');
         return done();
@@ -360,8 +395,8 @@ describe('Vogels Integration Tests', function() {
 
     it('should remove settings attribute from user record', function(done) {
       User.update({ id : '123456789', settings : null}, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
 
         expect(acc.get()).to.have.keys(['id', 'email', 'age', 'roles', 'acceptedTerms', 'things']);
         return done();
@@ -369,15 +404,15 @@ describe('Vogels Integration Tests', function() {
     });
 
     it('should update User using updateExpression', function(done) {
-      var params = {};
+      const params = {};
       params.UpdateExpression = 'ADD #a :x SET things[0].buz = :y';
       params.ConditionExpression = '#a = :current';
       params.ExpressionAttributeNames = {'#a' : 'age'};
       params.ExpressionAttributeValues = {':x' : 1, ':y' : 22, ':current' : 30};
 
       User.update({ id : '123456789'}, params, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get('age')).to.equal(31);
         expect(acc.get('things')).to.eql([{fiz : 3, buz : 22, fizbuz: 35}]);
         return done();
@@ -385,7 +420,7 @@ describe('Vogels Integration Tests', function() {
     });
 
     it('should update Movie using updateExpressions', function (done) {
-      var params = {};
+      const params = {};
       params.UpdateExpression = 'SET #year = #year + :inc, #dir.titles = list_append(#dir.titles, :title), #act[0].firstName = :firstName ADD tags :tag';
       params.ConditionExpression = '#year = :current';
       params.ExpressionAttributeNames = {
@@ -403,7 +438,7 @@ describe('Vogels Integration Tests', function() {
       };
 
       Movie.update({title : 'Movie 0', description : 'This is a description'}, params, function (err, mov) {
-        expect(err).to.not.exist();
+        should.not.exist(err);
 
         expect(mov.get('description')).to.eql('This is a description');
         expect(mov.get('releaseYear')).to.eql(2002);
@@ -418,8 +453,8 @@ describe('Vogels Integration Tests', function() {
         color : 'green',
         settings : { email : 'dynupdate@test.com'}
       }, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get()).to.have.keys(['id', 'settings', 'color']);
 
         expect(acc.get()).to.eql( {
@@ -437,17 +472,17 @@ describe('Vogels Integration Tests', function() {
   describe('#getItems', function () {
     it('should return 3 items', function(done) {
       User.getItems(['userid-1', 'userid-2', 'userid-3'], function (err, accounts) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(accounts).to.have.length(3);
         return done();
       });
     });
 
     it('should return 2 items with only selected attributes', function(done) {
-      var opts = {AttributesToGet : ['email', 'age']};
+      const opts = {AttributesToGet : ['email', 'age']};
 
       User.getItems(['userid-1', 'userid-2'], opts, function (err, accounts) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(accounts).to.have.length(2);
         _.each(accounts, function (acc) {
           expect(acc.get()).to.have.keys(['email', 'age']);
@@ -461,7 +496,7 @@ describe('Vogels Integration Tests', function() {
   describe('#query', function () {
     it('should return users tweets', function(done) {
       Tweet.query('userid-1').exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (t) {
@@ -474,11 +509,11 @@ describe('Vogels Integration Tests', function() {
 
     it('should return users tweets with specific attributes', function(done) {
       Tweet.query('userid-1').attributes(['num', 'content']).exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (t) {
-          expect(t.get('UserId')).to.not.exist;
+          should.not.exist(t.get('UserId'));
           expect(t.get()).to.include.keys('num', 'content');
         });
 
@@ -492,14 +527,14 @@ describe('Vogels Integration Tests', function() {
       .consistentRead(true)
       .descending()
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
-        var prev;
+        let prev;
         _.each(data.Items, function (t) {
           expect(t.get('UserId')).to.eql('userid-1');
 
-          var published = t.get('PublishedDateTime');
+          const published = t.get('PublishedDateTime');
 
           if(prev) {
             expect(published).to.be.at.most(prev);
@@ -513,21 +548,21 @@ describe('Vogels Integration Tests', function() {
     });
 
     it('should return tweets using secondaryIndex and date object', function(done) {
-      var oneMinAgo = new Date(new Date().getTime() - 60*1000);
+      const oneMinAgo = new Date(new Date().getTime() - 60*1000);
 
       Tweet.query('userid-1')
       .usingIndex('PublishedDateTimeIndex')
       .where('PublishedDateTime').gt(oneMinAgo)
       .descending()
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
-        var prev;
+        let prev;
         _.each(data.Items, function (t) {
           expect(t.get('UserId')).to.eql('userid-1');
 
-          var published = t.get('PublishedDateTime');
+          const published = t.get('PublishedDateTime');
 
           if(prev) {
             expect(published).to.be.at.most(prev);
@@ -545,14 +580,14 @@ describe('Vogels Integration Tests', function() {
       .filter('num').between(4, 8)
       .filter('tag').exists()
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (t) {
           expect(t.get('UserId')).to.eql('userid-1');
           expect(t.get('num')).to.be.above(3);
           expect(t.get('num')).to.be.below(9);
-          expect(t.get('tag')).to.exist();
+          should.exist(t.get('tag'));
         });
 
         return done();
@@ -563,12 +598,12 @@ describe('Vogels Integration Tests', function() {
       Tweet.query('userid-1')
         .filter('tag').exists()
         .exec(function (err, data) {
-          expect(err).to.not.exist;
+          should.not.exist(err);
           expect(data.Items).to.have.length.above(0);
 
           _.each(data.Items, function (t) {
             expect(t.get('UserId')).to.eql('userid-1');
-            expect(t.get('tag')).to.exist();
+            should.exist(t.get('tag'));
           });
 
           return done();
@@ -579,12 +614,12 @@ describe('Vogels Integration Tests', function() {
       Tweet.query('userid-1')
         .filter('num').in([4, 6, 8])
         .exec(function (err, data) {
-          expect(err).to.not.exist;
+          should.not.exist(err);
           expect(data.Items).to.have.length.above(0);
 
           _.each(data.Items, function (t) {
             expect(t.get('UserId')).to.eql('userid-1');
-            var c = _.includes([4, 6, 8], t.get('num'));
+            const c = _.includes([4, 6, 8], t.get('num'));
             expect(c).to.be.true;
           });
 
@@ -598,14 +633,14 @@ describe('Vogels Integration Tests', function() {
       .expressionAttributeValues({ ':low' : 4, ':high' : 8})
       .expressionAttributeNames({ '#num' : 'num', '#tag' : 'tag'})
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (t) {
           expect(t.get('UserId')).to.eql('userid-1');
           expect(t.get('num')).to.be.above(3);
           expect(t.get('num')).to.be.below(9);
-          expect(t.get('tag')).to.exist();
+          should.exist(t.get('tag'));
         });
 
         return done();
@@ -617,7 +652,7 @@ describe('Vogels Integration Tests', function() {
       .projectionExpression('#con, UserId')
       .expressionAttributeNames({ '#con' : 'content'})
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (t) {
@@ -630,7 +665,7 @@ describe('Vogels Integration Tests', function() {
 
     it('should return all tweets from user', function(done) {
       Tweet.query('userid-1').limit(2).loadAll().exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (t) {
@@ -647,7 +682,7 @@ describe('Vogels Integration Tests', function() {
   describe('#scan', function () {
     it('should return all users', function(done) {
       User.scan().loadAll().exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         return done();
@@ -656,7 +691,7 @@ describe('Vogels Integration Tests', function() {
 
     it('should return all users with limit', function(done) {
       User.scan().limit(2).loadAll().exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         return done();
@@ -664,22 +699,24 @@ describe('Vogels Integration Tests', function() {
     });
 
     it('should return users with specific attributes', function(done) {
-      User.scan()
+      User
+        .scan()
         .where('age').gt(18)
-        .attributes(['email', 'roles', 'age']).exec(function (err, data) {
-        expect(err).to.not.exist;
-        expect(data.Items).to.have.length.above(0);
-        _.each(data.Items, function (u) {
-          expect(u.get()).to.include.keys('email', 'roles', 'age');
-        });
+        .attributes(['email', 'roles', 'age'])
+        .exec(function (err, data) {
+          should.not.exist(err);
+          expect(data.Items).to.have.length.above(0);
+          _.each(data.Items, function (u) {
+            expect(u.get()).to.include.keys('email', 'roles', 'age');
+          });
 
-        return done();
-      });
+          return done();
+        });
     });
 
     it('should return 10 users', function(done) {
       User.scan().limit(10).exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length(10);
 
         return done();
@@ -690,7 +727,7 @@ describe('Vogels Integration Tests', function() {
       User.scan()
       .where('age').gt(18)
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (u) {
@@ -706,7 +743,7 @@ describe('Vogels Integration Tests', function() {
       .where('age').between(18, 22)
       .where('email').beginsWith('test1')
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (u) {
@@ -722,7 +759,7 @@ describe('Vogels Integration Tests', function() {
       User.scan()
       .where('roles').contains('admin')
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (u) {
@@ -734,12 +771,12 @@ describe('Vogels Integration Tests', function() {
     });
 
     it('should return users using stream interface', function(done) {
-      var stream = User.scan().exec();
+      const stream = User.scan().exec();
 
-      var called = false;
+      let called = false;
       stream.on('readable', function () {
         called = true;
-        var data = stream.read();
+        const data = stream.read();
         if(data) {
           expect(data.Items).to.have.length.above(0);
         }
@@ -757,7 +794,7 @@ describe('Vogels Integration Tests', function() {
       .expressionAttributeValues({ ':low' : 18, ':high' : 22, ':e' : 'test1'})
       .expressionAttributeNames({ '#age' : 'age', '#email' : 'email'})
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (u) {
@@ -774,7 +811,7 @@ describe('Vogels Integration Tests', function() {
         .where('age').between(18, 22)
         .where('email').beginsWith('test1')
         .exec(function (err, data) {
-          expect(err).to.not.exist;
+          should.not.exist(err);
           expect(data.Items).to.have.length.above(0);
 
           _.each(data.Items, function (u) {
@@ -790,11 +827,11 @@ describe('Vogels Integration Tests', function() {
       User.scan()
         .where('age').in([2, 9, 20])
         .exec(function (err, data) {
-          expect(err).to.not.exist;
+          should.not.exist(err);
           expect(data.Items).to.have.length.above(0);
 
           _.each(data.Items, function (u) {
-            var c = _.includes([2, 9, 20], u.get('age'));
+            const c = _.includes([2, 9, 20], u.get('age'));
             expect(c).to.be.true;
           });
 
@@ -807,7 +844,7 @@ describe('Vogels Integration Tests', function() {
       .projectionExpression('age, email, #roles')
       .expressionAttributeNames({ '#roles' : 'roles'})
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (u) {
@@ -820,7 +857,7 @@ describe('Vogels Integration Tests', function() {
 
     it('should load all users with limit', function(done) {
       User.scan().loadAll().limit(2).exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         return done();
@@ -828,12 +865,12 @@ describe('Vogels Integration Tests', function() {
     });
 
     it('should return users using stream interface and limit', function(done) {
-      var stream = User.scan().loadAll().limit(2).exec();
+      const stream = User.scan().loadAll().limit(2).exec();
 
-      var called = false;
+      let called = false;
       stream.on('readable', function () {
         called = true;
-        var data = stream.read();
+        const data = stream.read();
 
         if(data) {
           expect(data.Items).to.have.length.within(0, 2);
@@ -848,11 +885,11 @@ describe('Vogels Integration Tests', function() {
 
     it('should load tweets using not null tag clause', function(done) {
       Tweet.scan().where('tag').notNull().exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (t) {
-          expect(t.get('tag')).to.exist;
+          should.exist(t.get('tag'));
         });
 
         return done();
@@ -864,7 +901,7 @@ describe('Vogels Integration Tests', function() {
   describe('#parallelScan', function () {
     it('should return all users', function(done) {
       User.parallelScan(4).exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         return done();
@@ -876,7 +913,7 @@ describe('Vogels Integration Tests', function() {
       User.parallelScan(4)
       .where('age').gt(18)
       .exec(function (err, data) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         expect(data.Items).to.have.length.above(0);
 
         _.each(data.Items, function (u) {
@@ -888,12 +925,12 @@ describe('Vogels Integration Tests', function() {
     });
 
     it('should return users using stream interface', function(done) {
-      var stream = User.parallelScan(4).exec();
+      const stream = User.parallelScan(4).exec();
 
-      var called = false;
+      let called = false;
       stream.on('readable', function () {
         called = true;
-        var data = stream.read();
+        const data = stream.read();
 
         if(data) {
           expect(data.Items).to.have.length.above(0);
@@ -910,8 +947,8 @@ describe('Vogels Integration Tests', function() {
 
 
   describe('timestamps', function () {
-    var Model;
-    var ModelCustomTimestamps;
+    let Model;
+    let ModelCustomTimestamps;
 
     before(function (done) {
       Model = vogels.define('vogels-int-test-timestamp', {
@@ -938,10 +975,10 @@ describe('Vogels Integration Tests', function() {
 
     it('should add createdAt param', function (done) {
       Model.create({id : 'test-1'}, function (err) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
 
         Model.get('test-1', function (err2, data) {
-          expect(err2).to.not.exist;
+          should.not.exist(err2);
 
           expect(data.get('id')).to.eql('test-1');
           expect(data.get('createdAt')).to.exist;
@@ -954,10 +991,10 @@ describe('Vogels Integration Tests', function() {
 
     it('should add updatedAt param', function (done) {
       Model.update({id : 'test-2'}, function (err) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
 
         Model.get('test-2', function (err2, data) {
-          expect(err2).to.not.exist;
+          should.not.exist(err2);
 
           expect(data.get('id')).to.eql('test-2');
           expect(data.get('updatedAt')).to.exist;
@@ -970,10 +1007,10 @@ describe('Vogels Integration Tests', function() {
 
     it('should add custom createdAt param', function (done) {
       ModelCustomTimestamps.create({id : 'test-1'}, function (err) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
 
         ModelCustomTimestamps.get('test-1', function (err2, data) {
-          expect(err2).to.not.exist;
+          should.not.exist(err2);
 
           expect(data.get('id')).to.eql('test-1');
           expect(data.get('created')).to.exist;
@@ -985,10 +1022,10 @@ describe('Vogels Integration Tests', function() {
 
     it('should add custom updatedAt param', function (done) {
       ModelCustomTimestamps.update({id : 'test-2'}, function (err) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
 
         ModelCustomTimestamps.get('test-2', function (err2, data) {
-          expect(err2).to.not.exist;
+          should.not.exist(err2);
 
           expect(data.get('id')).to.eql('test-2');
           expect(data.get('updated')).to.exist;
@@ -1002,10 +1039,10 @@ describe('Vogels Integration Tests', function() {
   });
 
   describe('#destroy', function () {
-    var userId;
+    let userId;
     beforeEach(function (done) {
       User.create({email : 'destroy@test.com', age : 20, roles : ['tester']}, function (err, acc) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         userId = acc.get('id');
 
         return done();
@@ -1014,42 +1051,42 @@ describe('Vogels Integration Tests', function() {
 
     it('should destroy item with hash key', function(done) {
       User.destroy({ id : userId }, function (err) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         return done();
       });
     });
 
     it('should destroy item and return old values', function(done) {
       User.destroy({ id : userId }, {ReturnValues : 'ALL_OLD'}, function (err, acc) {
-        expect(err).to.not.exist;
-        expect(acc).to.exist;
+        should.not.exist(err);
+        should.exist(acc);
         expect(acc.get('email')).to.eql('destroy@test.com');
         return done();
       });
     });
 
     it('should return condition exception when using ConditionExpression', function(done) {
-      var params = {};
+      const params = {};
       params.ConditionExpression = '#i = :x';
       params.ExpressionAttributeNames = {'#i' : 'id'};
       params.ExpressionAttributeValues = {':x' : 'dontexist'};
 
       User.destroy({id : 'dontexist'}, params, function (err, acc) {
-        expect(err).to.exist;
+        should.exist(err);
         expect(err.code).to.eql('ConditionalCheckFailedException');
-        expect(acc).to.not.exist;
+        should.not.exist(acc);
 
         return done();
       });
     });
 
     it('should return condition exception when using Expected shorthand', function(done) {
-      var opts = {expected : {id : 'dontexist'}};
+      const opts = {expected : {id : 'dontexist'}};
 
       User.destroy({id : 'dontexist'}, opts, function (err, acc) {
-        expect(err).to.exist;
+        should.exist(err);
         expect(err.code).to.eql('ConditionalCheckFailedException');
-        expect(acc).to.not.exist;
+        should.not.exist(acc);
 
         return done();
       });
@@ -1061,32 +1098,32 @@ describe('Vogels Integration Tests', function() {
   describe('model methods', function () {
 
     it('#save with passed in attributes', function (done) {
-      var t = new Tweet({
+      const t = new Tweet({
         UserId : 'tester-1',
         content : 'save test tweet',
         tag : 'test'
       });
 
       t.save(function (err) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         return done();
       });
     });
 
     it('#save without passed in attributes', function (done) {
-      var t = new Tweet();
+      const t = new Tweet();
 
-      var attrs = { UserId : 'tester-1', content : 'save test tweet', tag : 'test' };
+      const attrs = { UserId : 'tester-1', content : 'save test tweet', tag : 'test' };
       t.set(attrs);
 
       t.save(function (err) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
         return done();
       });
     });
 
     it('#save without callback', function (done) {
-      var t = new Tweet({
+      const t = new Tweet({
         UserId : 'tester-1',
         content : 'save test tweet',
         tag : 'test'
@@ -1099,12 +1136,12 @@ describe('Vogels Integration Tests', function() {
 
     it('#update with callback', function (done) {
       Tweet.create({UserId : 'tester-2', content : 'update test tweet'}, function (err, tweet) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
 
         tweet.set({tag : 'update'});
 
         tweet.update(function (err) {
-          expect(err).to.not.exist;
+          should.not.exist(err);
           expect(tweet.get('tag')).to.eql('update');
           return done();
         });
@@ -1114,7 +1151,7 @@ describe('Vogels Integration Tests', function() {
 
     it('#update without callback', function (done) {
       Tweet.create({UserId : 'tester-2', content : 'update test tweet'}, function (err, tweet) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
 
         tweet.set({tag : 'update'});
 
@@ -1127,10 +1164,10 @@ describe('Vogels Integration Tests', function() {
 
     it('#destroy with callback', function (done) {
       Tweet.create({UserId : 'tester-2', content : 'update test tweet'}, function (err, tweet) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
 
         tweet.destroy(function (err) {
-          expect(err).to.not.exist;
+          should.not.exist(err);
           return done();
         });
       });
@@ -1138,7 +1175,7 @@ describe('Vogels Integration Tests', function() {
 
     it('#destroy without callback', function (done) {
       Tweet.create({UserId : 'tester-2', content : 'update test tweet'}, function (err, tweet) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
 
         tweet.destroy();
 
@@ -1148,7 +1185,7 @@ describe('Vogels Integration Tests', function() {
 
     it('#toJSON', function (done) {
       Tweet.create({UserId : 'tester-2', content : 'update test tweet'}, function (err, tweet) {
-        expect(err).to.not.exist;
+        should.not.exist(err);
 
         expect(tweet.toJSON()).to.have.keys(['UserId', 'content', 'TweetID', 'PublishedDateTime']);
         return done();

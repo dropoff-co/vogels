@@ -1,19 +1,21 @@
 'use strict';
 
-var helper = require('./test-helper'),
-    Schema = require('../lib/schema'),
-    Scan   = require('../lib/scan'),
-    _      = require('lodash'),
-    chai   = require('chai'),
-    expect = chai.expect,
-    Joi    = require('joi');
+const helper = require('./test-helper');
+const Schema = require('../lib/schema');
+const Scan   = require('../lib/scan');
+const _      = require('lodash');
+const chai   = require('chai');
+const expect = chai.expect;
+const Joi    = require('joi');
+
+/* global describe,it,beforeEach */
 
 chai.should();
 
-var internals = {};
+const internals = {};
 
 internals.assertScanFilter = function (scan, expected) {
-  var conds = _.map(scan.request.ScanFilter, function (c) {
+  const conds = _.map(scan.request.ScanFilter, function (c) {
     return c.format();
   });
 
@@ -25,9 +27,9 @@ internals.assertScanFilter = function (scan, expected) {
 };
 
 describe('Scan', function () {
-  var schema,
-      serializer,
-      table;
+  let schema;
+  let serializer;
+  let table;
 
   beforeEach(function () {
     serializer = helper.mockSerializer(),
@@ -39,7 +41,7 @@ describe('Scan', function () {
 
     table.docClient = helper.mockDocClient();
 
-    var config = {
+    const config = {
       hashKey: 'name',
       rangeKey: 'email',
       schema : {
@@ -94,7 +96,7 @@ describe('Scan', function () {
     });
 
     it('should run scan after encountering a retryable exception', function (done) {
-      var err = new Error('RetryableException');
+      const err = new Error('RetryableException');
       err.retryable = true;
 
       table.runScan
@@ -118,14 +120,14 @@ describe('Scan', function () {
   describe('#limit', function () {
 
     it('should set the limit', function () {
-      var scan = new Scan(table, serializer).limit(10);
+      const scan = new Scan(table, serializer).limit(10);
 
       scan.request.Limit.should.equal(10);
     });
 
 
     it('should throw when limit is zero', function () {
-      var scan = new Scan(table, serializer);
+      const scan = new Scan(table, serializer);
       expect(function () {
         scan.limit(0);
       }).to.throw('Limit must be greater than 0');
@@ -136,13 +138,13 @@ describe('Scan', function () {
   describe('#attributes', function () {
 
     it('should set array attributes to get', function () {
-      var scan = new Scan(table, serializer).attributes(['created', 'email']);
+      const scan = new Scan(table, serializer).attributes(['created', 'email']);
       scan.request.ProjectionExpression.should.eql('#created,#email');
       scan.request.ExpressionAttributeNames.should.eql({'#created' : 'created', '#email' : 'email'});
     });
 
     it('should set single attribute to get', function () {
-      var scan = new Scan(table, serializer).attributes('email');
+      const scan = new Scan(table, serializer).attributes('email');
       scan.request.ProjectionExpression.should.eql('#email');
       scan.request.ExpressionAttributeNames.should.eql({'#email' : 'email'});
     });
@@ -151,19 +153,19 @@ describe('Scan', function () {
 
   describe('#startKey', function () {
     it('should set start Key to hash', function () {
-      var key = {name: {S: 'tim'}};
+      const key = {name: {S: 'tim'}};
       serializer.buildKey.returns(key);
 
-      var scan = new Scan(table, serializer).startKey('tim');
+      const scan = new Scan(table, serializer).startKey('tim');
 
       scan.request.ExclusiveStartKey.should.eql(key);
     });
 
     it('should set start Key to hash + range', function () {
-      var key = {name: {S: 'tim'}, email : {S: 'foo@example.com'}};
+      const key = {name: {S: 'tim'}, email : {S: 'foo@example.com'}};
       serializer.buildKey.returns(key);
 
-      var scan = new Scan(table, serializer).startKey({name: 'tim', email: 'foo@example.com'});
+      const scan = new Scan(table, serializer).startKey({name: 'tim', email: 'foo@example.com'});
 
       scan.request.ExclusiveStartKey.should.eql(key);
     });
@@ -172,7 +174,7 @@ describe('Scan', function () {
   describe('#select', function () {
 
     it('should set select Key', function () {
-      var scan = new Scan(table, serializer).select('COUNT');
+      const scan = new Scan(table, serializer).select('COUNT');
 
       scan.request.Select.should.eql('COUNT');
     });
@@ -181,12 +183,12 @@ describe('Scan', function () {
   describe('#ReturnConsumedCapacity', function () {
 
     it('should set return consumed capacity Key to passed in value', function () {
-      var scan = new Scan(table, serializer).returnConsumedCapacity('TOTAL');
+      const scan = new Scan(table, serializer).returnConsumedCapacity('TOTAL');
       scan.request.ReturnConsumedCapacity.should.eql('TOTAL');
     });
 
     it('should set return consumed capacity Key', function () {
-      var scan = new Scan(table, serializer).returnConsumedCapacity();
+      const scan = new Scan(table, serializer).returnConsumedCapacity();
 
       scan.request.ReturnConsumedCapacity.should.eql('TOTAL');
     });
@@ -195,7 +197,7 @@ describe('Scan', function () {
   describe('#segment', function () {
 
     it('should set both segment and total segments keys', function () {
-      var scan = new Scan(table, serializer).segments(0, 4);
+      const scan = new Scan(table, serializer).segments(0, 4);
 
       scan.request.Segment.should.eql(0);
       scan.request.TotalSegments.should.eql(4);
@@ -204,11 +206,11 @@ describe('Scan', function () {
 
 
   describe('#where', function () {
-    var scan;
+    let scan;
 
     beforeEach(function () {
 
-      var config = {
+      const config = {
         hashKey: 'name',
         rangeKey: 'email',
         schema : {
@@ -359,7 +361,7 @@ describe('Scan', function () {
     });
 
     it('should convert date to iso string', function() {
-      var d = new Date();
+      const d = new Date();
       scan = scan.where('created').equals(d);
 
       scan.request.ExpressionAttributeNames.should.eql({'#created' : 'created'});
@@ -372,7 +374,7 @@ describe('Scan', function () {
   describe('#loadAll', function () {
 
     it('should set load all option to true', function () {
-      var scan = new Scan(table, serializer).loadAll();
+      const scan = new Scan(table, serializer).loadAll();
 
       scan.options.loadAll.should.be.true;
     });
@@ -382,7 +384,7 @@ describe('Scan', function () {
   describe('#filterExpression', function () {
 
     it('should set filter expression', function () {
-      var scan = new Scan(table, serializer).filterExpression('Postedby = :val');
+      const scan = new Scan(table, serializer).filterExpression('Postedby = :val');
       scan.request.FilterExpression.should.equal('Postedby = :val');
     });
   });
@@ -390,7 +392,7 @@ describe('Scan', function () {
   describe('#expressionAttributeValues', function () {
 
     it('should set expression attribute values', function () {
-      var scan = new Scan(table, serializer).expressionAttributeValues({ ':val' : 'test'});
+      const scan = new Scan(table, serializer).expressionAttributeValues({ ':val' : 'test'});
       scan.request.ExpressionAttributeValues.should.eql({ ':val' : 'test'});
     });
 
@@ -399,7 +401,7 @@ describe('Scan', function () {
   describe('#expressionAttributeNames', function () {
 
     it('should set expression attribute names', function () {
-      var scan = new Scan(table, serializer).expressionAttributeNames({ '#name' : 'name'});
+      const scan = new Scan(table, serializer).expressionAttributeNames({ '#name' : 'name'});
       scan.request.ExpressionAttributeNames.should.eql({ '#name' : 'name'});
     });
   });
@@ -407,7 +409,7 @@ describe('Scan', function () {
   describe('#projectionExpression', function () {
 
     it('should set projection expression', function () {
-      var scan = new Scan(table, serializer).projectionExpression( '#name, #email');
+      const scan = new Scan(table, serializer).projectionExpression( '#name, #email');
       scan.request.ProjectionExpression.should.eql('#name, #email');
     });
   });

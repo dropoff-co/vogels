@@ -1,11 +1,12 @@
 'use strict';
 
-var expressions = require('../lib/expressions'),
-    chai        = require('chai'),
-    expect      = chai.expect,
-    Schema      = require('../lib/schema'),
-    Joi         = require('joi');
-    //_         = require('lodash');
+const expressions = require('../lib/expressions');
+const chai        = require('chai');
+const expect      = chai.expect;
+const Schema      = require('../lib/schema');
+const Joi         = require('joi');
+
+/* global describe,it,beforeEach */
 
 chai.should();
 
@@ -14,7 +15,7 @@ describe('expressions', function () {
   describe('#parse', function () {
 
     it('should parse single SET action', function () {
-      var out = expressions.parse('SET foo = :x');
+      const out = expressions.parse('SET foo = :x');
 
       expect(out).to.eql({
         SET : ['foo = :x'],
@@ -25,7 +26,7 @@ describe('expressions', function () {
     });
 
     it('should parse multiple SET actions', function () {
-      var out = expressions.parse('SET num = num + :n,Price = if_not_exists(Price, 100), #pr.FiveStar = list_append(#pr.FiveStar, :r)');
+      const out = expressions.parse('SET num = num + :n,Price = if_not_exists(Price, 100), #pr.FiveStar = list_append(#pr.FiveStar, :r)');
 
       expect(out).to.eql({
         SET : ['num = num + :n', 'Price = if_not_exists(Price, 100)', '#pr.FiveStar = list_append(#pr.FiveStar, :r)'],
@@ -36,7 +37,7 @@ describe('expressions', function () {
     });
 
     it('should parse ADD action', function () {
-      var out = expressions.parse('ADD num :y');
+      const out = expressions.parse('ADD num :y');
 
       expect(out).to.eql({
         SET : null,
@@ -47,7 +48,7 @@ describe('expressions', function () {
     });
 
     it('should parse REMOVE action', function () {
-      var out = expressions.parse('REMOVE Title, RelatedItems[2], Pictures.RearView');
+      const out = expressions.parse('REMOVE Title, RelatedItems[2], Pictures.RearView');
 
       expect(out).to.eql({
         SET : null,
@@ -59,7 +60,7 @@ describe('expressions', function () {
 
 
     it('should parse DELETE action', function () {
-      var out = expressions.parse('DELETE color :c');
+      const out = expressions.parse('DELETE color :c');
 
       expect(out).to.eql({
         SET : null,
@@ -70,7 +71,7 @@ describe('expressions', function () {
     });
 
     it('should parse ADD and SET actions', function () {
-      var out = expressions.parse('ADD num :y SET name = :n');
+      const out = expressions.parse('ADD num :y SET name = :n');
 
       expect(out).to.eql({
         SET : ['name = :n'],
@@ -81,7 +82,7 @@ describe('expressions', function () {
     });
 
     it('should parse multiple actions', function () {
-      var out = expressions.parse('SET list[0] = :val1 REMOVE #m.nestedField1, #m.nestedField2 ADD aNumber :val2, anotherNumber :val3 DELETE aSet :val4');
+      const out = expressions.parse('SET list[0] = :val1 REMOVE #m.nestedField1, #m.nestedField2 ADD aNumber :val2, anotherNumber :val3 DELETE aSet :val4');
 
       expect(out).to.eql({
         SET : ['list[0] = :val1'],
@@ -92,7 +93,7 @@ describe('expressions', function () {
     });
 
     it('should return null actions when given null', function () {
-      var out = expressions.parse(null);
+      const out = expressions.parse(null);
 
       expect(out).to.eql({
         SET : null,
@@ -103,7 +104,7 @@ describe('expressions', function () {
     });
 
     it('should return null actions when given empty string', function () {
-      var out = expressions.parse('');
+      const out = expressions.parse('');
 
       expect(out).to.eql({
         SET : null,
@@ -115,10 +116,10 @@ describe('expressions', function () {
   });
 
   describe('#serializeUpdateExpression', function () {
-    var schema;
+    let schema;
 
     beforeEach(function () {
-      var config = {
+      const config = {
         hashKey: 'id',
         schema : {
           id    : Joi.string(),
@@ -131,182 +132,200 @@ describe('expressions', function () {
       schema = new Schema(config);
     });
 
-    it('should return single SET action', function () {
-      var updates = {
+    it('should return single SET action', function (next) {
+      const updates = {
         id : 'foobar',
         email : 'test@test.com',
       };
 
-      var result = expressions.serializeUpdateExpression(schema, updates);
+      expressions.serializeUpdateExpression(schema, updates, function(error, result) {
+        expect(result.expressions).to.eql({
+          SET    : ['#email = :email'],
+          ADD    : [],
+          REMOVE : [],
+          DELETE : [],
+        });
 
-      expect(result.expressions).to.eql({
-        SET    : ['#email = :email'],
-        ADD    : [],
-        REMOVE : [],
-        DELETE : [],
+        expect(result.values).to.eql({ ':email' : 'test@test.com' });
+        expect(result.attributeNames).to.eql({ '#email' : 'email' });
+        next();
       });
-
-      expect(result.values).to.eql({ ':email' : 'test@test.com' });
-      expect(result.attributeNames).to.eql({ '#email' : 'email' });
     });
 
-    it('should return multiple SET actions', function () {
-      var updates = {
+    it('should return multiple SET actions', function (next) {
+      const updates = {
         id : 'foobar',
         email : 'test@test.com',
         age : 33,
         name : 'Steve'
       };
 
-      var result = expressions.serializeUpdateExpression(schema, updates);
+      expressions.serializeUpdateExpression(schema, updates, function(error, result) {
+        expect(result.expressions).to.eql({
+          SET    : ['#email = :email', '#age = :age', '#name = :name'],
+          ADD    : [],
+          REMOVE : [],
+          DELETE : [],
+        });
 
-      expect(result.expressions).to.eql({
-        SET    : ['#email = :email', '#age = :age', '#name = :name'],
-        ADD    : [],
-        REMOVE : [],
-        DELETE : [],
+        expect(result.values).to.eql({
+          ':email' : 'test@test.com',
+          ':age'   : 33,
+          ':name'  : 'Steve'
+        });
+
+        expect(result.attributeNames).to.eql({
+          '#email' : 'email',
+          '#age'   : 'age',
+          '#name'  : 'name',
+        });
+
+        next();
       });
 
-      expect(result.values).to.eql({
-        ':email' : 'test@test.com',
-        ':age'   : 33,
-        ':name'  : 'Steve'
-      });
-
-      expect(result.attributeNames).to.eql({
-        '#email' : 'email',
-        '#age'   : 'age',
-        '#name'  : 'name',
-      });
     });
 
-    it('should return SET and ADD actions', function () {
-      var updates ={
+    it('should return SET and ADD actions', function (next) {
+      const updates ={
         id : 'foobar',
         email : 'test@test.com',
         age : {$add : 1}
       };
 
-      var result = expressions.serializeUpdateExpression(schema, updates);
-      expect(result.expressions).to.eql({
-        SET    : ['#email = :email'],
-        ADD    : ['#age :age'],
-        REMOVE : [],
-        DELETE : [],
-      });
+      expressions.serializeUpdateExpression(schema, updates, function(error, result) {
+        expect(result.expressions).to.eql({
+          SET    : ['#email = :email'],
+          ADD    : ['#age :age'],
+          REMOVE : [],
+          DELETE : [],
+        });
 
-      expect(result.values).to.eql({
-        ':email' : 'test@test.com',
-        ':age'   : 1
-      });
+        expect(result.values).to.eql({
+          ':email' : 'test@test.com',
+          ':age'   : 1
+        });
 
-      expect(result.attributeNames).to.eql({
-        '#email' : 'email',
-        '#age'   : 'age',
-      });
+        expect(result.attributeNames).to.eql({
+          '#email' : 'email',
+          '#age'   : 'age',
+        });
 
+        next();
+      });
     });
 
-    it('should return single DELETE action', function () {
-      var updates = {
+    it('should return single DELETE action', function (next) {
+      const updates = {
         id : 'foobar',
         names : { $del : 'tester'},
       };
 
-      var result = expressions.serializeUpdateExpression(schema, updates);
+      expressions.serializeUpdateExpression(schema, updates, function(error, result) {
+        expect(result.expressions).to.eql({
+          SET    : [],
+          ADD    : [],
+          REMOVE : [],
+          DELETE : ['#names :names'],
+        });
 
-      expect(result.expressions).to.eql({
-        SET    : [],
-        ADD    : [],
-        REMOVE : [],
-        DELETE : ['#names :names'],
-      });
+        const stringSet = result.values[':names'];
 
-      var stringSet = result.values[':names'];
+        expect(result.values).to.have.keys([':names']);
+        expect(result.values[':names'].type).eql('String');
+        expect(stringSet.values).to.eql([ 'tester']);
+        expect(stringSet.type).to.eql( 'String');
 
-      expect(result.values).to.have.keys([':names']);
-      expect(result.values[':names'].type).eql('String');
-      expect(stringSet.values).to.eql([ 'tester']);
-      expect(stringSet.type).to.eql( 'String');
+        expect(result.attributeNames).to.eql({
+          '#names' : 'names'
+        });
 
-      expect(result.attributeNames).to.eql({
-        '#names' : 'names'
+        next();
       });
 
     });
 
-    it('should return single REMOVE action', function () {
-      var updates = {
+    it('should return single REMOVE action', function (next) {
+      const updates = {
         id : 'foobar',
         email : null,
       };
 
-      var result = expressions.serializeUpdateExpression(schema, updates);
+      expressions.serializeUpdateExpression(schema, updates, function(error, result) {
+        expect(result.expressions).to.eql({
+          SET    : [],
+          ADD    : [],
+          REMOVE : ['#email'],
+          DELETE : [],
+        });
 
-      expect(result.expressions).to.eql({
-        SET    : [],
-        ADD    : [],
-        REMOVE : ['#email'],
-        DELETE : [],
-      });
+        expect(result.values).to.eql({});
 
-      expect(result.values).to.eql({});
+        expect(result.attributeNames).to.eql({
+          '#email' : 'email'
+        });
 
-      expect(result.attributeNames).to.eql({
-        '#email' : 'email'
+
+        next();
       });
 
     });
 
-    it('should return single REMOVE action when value is set to empty string', function () {
-      var updates = {
+    it('should return single REMOVE action when value is set to empty string', function (next) {
+      const updates = {
         id : 'foobar',
         email : '',
       };
 
-      var result = expressions.serializeUpdateExpression(schema, updates);
+      expressions.serializeUpdateExpression(schema, updates, function(error, result) {
+        expect(result.expressions).to.eql({
+          SET    : [],
+          ADD    : [],
+          REMOVE : ['#email'],
+          DELETE : [],
+        });
 
-      expect(result.expressions).to.eql({
-        SET    : [],
-        ADD    : [],
-        REMOVE : ['#email'],
-        DELETE : [],
-      });
+        expect(result.values).to.eql({});
 
-      expect(result.values).to.eql({});
+        expect(result.attributeNames).to.eql({
+          '#email' : 'email'
+        });
 
-      expect(result.attributeNames).to.eql({
-        '#email' : 'email'
+        next();
       });
 
     });
 
-    it('should return empty actions when passed empty object', function () {
-      var result = expressions.serializeUpdateExpression(schema, {});
+    it('should return empty actions when passed empty object', function (next) {
+      expressions.serializeUpdateExpression(schema, {}, function(error, result) {
+        expect(result.expressions).to.eql({
+          SET    : [],
+          ADD    : [],
+          REMOVE : [],
+          DELETE : [],
+        });
 
-      expect(result.expressions).to.eql({
-        SET    : [],
-        ADD    : [],
-        REMOVE : [],
-        DELETE : [],
+        expect(result.values).to.eql({});
+        expect(result.attributeNames).to.eql({});
+
+        next();
       });
-
-      expect(result.values).to.eql({});
-      expect(result.attributeNames).to.eql({});
     });
 
-    it('should return empty actions when passed null', function () {
-      var result = expressions.serializeUpdateExpression(schema, null);
+    it('should return empty actions when passed null', function (next) {
+      expressions.serializeUpdateExpression(schema, null, function(error, result) {
+        expect(result.expressions).to.eql({
+          SET    : [],
+          ADD    : [],
+          REMOVE : [],
+          DELETE : [],
+        });
 
-      expect(result.expressions).to.eql({
-        SET    : [],
-        ADD    : [],
-        REMOVE : [],
-        DELETE : [],
+        expect(result.values).to.eql({});
+        expect(result.attributeNames).to.eql({});
+
+        next();
       });
 
-      expect(result.values).to.eql({});
-      expect(result.attributeNames).to.eql({});
     });
 
   });
@@ -314,105 +333,105 @@ describe('expressions', function () {
   describe('#stringify', function () {
 
     it('should return single SET action', function () {
-      var params = {
+      const params = {
         SET : ['#email = :email']
       };
 
-      var out = expressions.stringify(params);
+      const out = expressions.stringify(params);
       expect(out).to.eql('SET #email = :email');
     });
 
     it('should return single SET action when param is a string', function () {
-      var params = {
+      const params = {
         SET : '#email = :email'
       };
 
-      var out = expressions.stringify(params);
+      const out = expressions.stringify(params);
       expect(out).to.eql('SET #email = :email');
     });
 
     it('should return single SET action when other actions are null', function () {
-      var params = {
+      const params = {
         SET    : ['#email = :email'],
         ADD    : null,
         REMOVE : null,
         DELETE : null
       };
 
-      var out = expressions.stringify(params);
+      const out = expressions.stringify(params);
       expect(out).to.eql('SET #email = :email');
     });
 
     it('should return multiple SET actions', function () {
-      var params = {
+      const params = {
         SET : ['#email = :email', '#age = :n', '#name = :name']
       };
 
-      var out = expressions.stringify(params);
+      const out = expressions.stringify(params);
       expect(out).to.eql('SET #email = :email, #age = :n, #name = :name');
     });
 
     it('should return SET and ADD actions', function () {
-      var params = {
+      const params = {
         SET : ['#email = :email'],
         ADD : ['#age :n', '#foo :bar']
       };
 
-      var out = expressions.stringify(params);
+      const out = expressions.stringify(params);
       expect(out).to.eql('SET #email = :email ADD #age :n, #foo :bar');
     });
 
     it('should return stringified ALL actions', function () {
-      var params = {
+      const params = {
         SET : ['#email = :email'],
         ADD : ['#age :n', '#foo :bar'],
         REMOVE : ['#title', '#picture', '#settings'],
         DELETE : ['#color :c']
       };
 
-      var out = expressions.stringify(params);
+      const out = expressions.stringify(params);
       expect(out).to.eql('SET #email = :email ADD #age :n, #foo :bar REMOVE #title, #picture, #settings DELETE #color :c');
     });
 
     it('should return empty string when passed empty actions', function () {
-      var params = {
+      const params = {
         SET : [],
         ADD : [],
         REMOVE : [],
         DELETE : []
       };
 
-      var out = expressions.stringify(params);
+      const out = expressions.stringify(params);
       expect(out).to.eql('');
     });
 
     it('should return empty string when passed null actions', function () {
-      var params = {
+      const params = {
         SET : null,
         ADD : null,
         REMOVE : null,
         DELETE : null
       };
 
-      var out = expressions.stringify(params);
+      const out = expressions.stringify(params);
       expect(out).to.eql('');
     });
 
     it('should return empty string when passed empty object', function () {
-      var out = expressions.stringify({});
+      const out = expressions.stringify({});
 
       expect(out).to.eql('');
     });
 
     it('should return empty string when passed null', function () {
-      var out = expressions.stringify(null);
+      const out = expressions.stringify(null);
 
       expect(out).to.eql('');
     });
 
     it('should result from stringifying a parsed string should equal original string', function () {
-      var exp = 'SET #email = :email ADD #age :n, #foo :bar REMOVE #title, #picture, #settings DELETE #color :c';
-      var parsed = expressions.parse(exp);
+      const exp = 'SET #email = :email ADD #age :n, #foo :bar REMOVE #title, #picture, #settings DELETE #color :c';
+      const parsed = expressions.parse(exp);
 
       expect(expressions.stringify(parsed)).to.eql(exp);
     });

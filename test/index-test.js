@@ -1,13 +1,15 @@
 'use strict';
 
-var vogels = require('../index'),
-    AWS    = require('aws-sdk'),
-    helper = require('./test-helper'),
-    Table  = require('../lib/table'),
-    chai   = require('chai'),
-    expect = chai.expect,
-    Joi    = require('joi'),
-    sinon  = require('sinon');
+const vogels = require('../index');
+const AWS    = require('aws-sdk');
+const helper = require('./test-helper');
+const Table  = require('../lib/table');
+const chai   = require('chai');
+const expect = chai.expect;
+const Joi    = require('joi');
+const sinon  = require('sinon');
+
+/* global describe,afterEach,it,beforeEach */
 
 chai.should();
 
@@ -20,14 +22,14 @@ describe('vogels', function () {
   describe('#define', function () {
 
     it('should return model', function () {
-      var config = {
+      const config = {
         hashKey : 'name',
         schema : {
           name : Joi.string()
         }
       };
 
-      var model = vogels.define('Account', config);
+      const model = vogels.define('Account', config);
       expect(model).to.not.be.nil;
     });
 
@@ -42,7 +44,7 @@ describe('vogels', function () {
     });
 
     it('should have config method', function () {
-      var Account = vogels.define('Account', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
 
       Account.config({tableName: 'test-accounts'});
 
@@ -50,15 +52,15 @@ describe('vogels', function () {
     });
 
     it('should configure table name as accounts', function () {
-      var Account = vogels.define('Account', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
 
       Account.config().name.should.equal('accounts');
     });
 
     it('should return new account item', function () {
-      var Account = vogels.define('Account', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
 
-      var acc = new Account({name: 'Test Acc'});
+      const acc = new Account({name: 'Test Acc'});
       acc.table.should.be.instanceof(Table);
     });
 
@@ -80,7 +82,7 @@ describe('vogels', function () {
 
   describe('#model', function () {
     it('should return defined model', function () {
-      var Account = vogels.define('Account', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
 
       vogels.model('Account').should.equal(Account);
     });
@@ -93,7 +95,7 @@ describe('vogels', function () {
 
   describe('model config', function () {
     it('should configure set dynamodb driver', function () {
-      var Account = vogels.define('Account', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
 
       Account.config({tableName: 'test-accounts' });
 
@@ -101,18 +103,18 @@ describe('vogels', function () {
     });
 
     it('should configure set dynamodb driver', function () {
-      var Account = vogels.define('Account', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
 
-      var dynamodb = helper.realDynamoDB();
+      const dynamodb = helper.realDynamoDB();
       Account.config({dynamodb: dynamodb });
 
       Account.docClient.service.config.endpoint.should.eq(dynamodb.config.endpoint);
     });
 
     it('should set document client', function () {
-      var Account = vogels.define('Account', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
 
-      var docClient = new AWS.DynamoDB.DocumentClient(helper.realDynamoDB());
+      const docClient = new AWS.DynamoDB.DocumentClient(helper.realDynamoDB());
 
       Account.config({docClient: docClient });
 
@@ -121,10 +123,10 @@ describe('vogels', function () {
 
 
     it('should globally set dynamodb driver for all models', function () {
-      var Account = vogels.define('Account', {hashKey : 'id'});
-      var Post = vogels.define('Post', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
+      const Post = vogels.define('Post', {hashKey : 'id'});
 
-      var dynamodb = helper.realDynamoDB();
+      const dynamodb = helper.realDynamoDB();
       vogels.dynamoDriver(dynamodb);
 
       Account.docClient.service.config.endpoint.should.eq(dynamodb.config.endpoint);
@@ -132,10 +134,10 @@ describe('vogels', function () {
     });
 
     it('should continue to use globally set dynamodb driver', function () {
-      var dynamodb = helper.mockDynamoDB();
+      const dynamodb = helper.mockDynamoDB();
       vogels.dynamoDriver(dynamodb);
 
-      var Account = vogels.define('Account', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
 
       Account.docClient.service.config.endpoint.should.eq(dynamodb.config.endpoint);
     });
@@ -143,11 +145,11 @@ describe('vogels', function () {
   });
 
   describe('#createTables', function () {
-    var clock;
+    let clock;
 
     beforeEach(function () {
       vogels.reset();
-      // var dynamodb = helper.mockDynamoDB();
+      // const dynamodb = helper.mockDynamoDB();
       // vogels.dynamoDriver(dynamodb);
       vogels.documentClient(helper.mockDocClient());
       clock = sinon.useFakeTimers();
@@ -160,17 +162,17 @@ describe('vogels', function () {
     it('should create single definied model', function (done) {
       this.timeout(0);
 
-      var Account = vogels.define('Account', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
 
-      var second = {
+      const second = {
         Table : { TableStatus : 'PENDING'}
       };
 
-      var third = {
+      const third = {
         Table : { TableStatus : 'ACTIVE'}
       };
 
-      var dynamodb = Account.docClient.service;
+      const dynamodb = Account.docClient.service;
 
       dynamodb.describeTable
         .onCall(0).yields(null, null)
@@ -190,9 +192,9 @@ describe('vogels', function () {
     });
 
     it('should return error', function (done) {
-      var Account = vogels.define('Account', {hashKey : 'id'});
+      const Account = vogels.define('Account', {hashKey : 'id'});
 
-      var dynamodb = Account.docClient.service;
+      const dynamodb = Account.docClient.service;
       dynamodb.describeTable.onCall(0).yields(null, null);
 
       dynamodb.createTable.yields(new Error('Fail'), null);
@@ -205,14 +207,14 @@ describe('vogels', function () {
     });
 
     it('should create model without callback', function (done) {
-      var Account = vogels.define('Account', {hashKey : 'id'});
-      var dynamodb = Account.docClient.service;
+      const Account = vogels.define('Account', {hashKey : 'id'});
+      const dynamodb = Account.docClient.service;
 
-      var second = {
+      const second = {
         Table : { TableStatus : 'PENDING'}
       };
 
-      var third = {
+      const third = {
         Table : { TableStatus : 'ACTIVE'}
       };
 
@@ -233,10 +235,10 @@ describe('vogels', function () {
     });
 
     it('should return error when waiting for table to become active', function (done) {
-      var Account = vogels.define('Account', {hashKey : 'id'});
-      var dynamodb = Account.docClient.service;
+      const Account = vogels.define('Account', {hashKey : 'id'});
+      const dynamodb = Account.docClient.service;
 
-      var second = {
+      const second = {
         Table : { TableStatus : 'PENDING'}
       };
 

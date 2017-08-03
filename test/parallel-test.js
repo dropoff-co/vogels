@@ -1,22 +1,24 @@
 'use strict';
 
-var Table  = require('../lib/table'),
-    ParallelScan = require('../lib/parallelScan'),
-    Schema = require('../lib/schema'),
-    chai   = require('chai'),
-    expect = chai.expect,
-    assert = require('assert'),
-    helper = require('./test-helper'),
-    serializer = require('../lib/serializer'),
-    Joi    = require('joi');
+const Table  = require('../lib/table');
+const ParallelScan = require('../lib/parallelScan');
+const Schema = require('../lib/schema');
+const chai   = require('chai');
+const expect = chai.expect;
+const assert = require('assert');
+const helper = require('./test-helper');
+const serializer = require('../lib/serializer');
+const Joi    = require('joi');
+
+/* global describe,it,beforeEach */
 
 chai.should();
 
 describe('ParallelScan', function() {
-  var table;
+  let table;
 
   beforeEach(function () {
-    var config = {
+    const config = {
       hashKey: 'num',
       schema : {
         num : Joi.number(),
@@ -24,13 +26,13 @@ describe('ParallelScan', function() {
       }
     };
 
-    var schema = new Schema(config);
+    const schema = new Schema(config);
 
     table = new Table('mockTable', schema, serializer, helper.mockDynamoDB(), helper.testLogger());
   });
 
   it('should return error', function (done) {
-    var scan = new ParallelScan(table, serializer, 4);
+    const scan = new ParallelScan(table, serializer, 4);
 
     table.docClient.scan.yields(new Error('fail'));
 
@@ -44,14 +46,13 @@ describe('ParallelScan', function() {
   });
 
   it('should stream error', function (done) {
-    var scan = new ParallelScan(table, serializer, 4);
+    const scan = new ParallelScan(table, serializer, 4);
 
     table.docClient.scan.yields(new Error('fail'));
 
-    var stream = scan.exec();
+    const stream = scan.exec();
 
     stream.on('error', function (err) {
-      console.log('test here');
       expect(err).to.exist;
       return done();
     });

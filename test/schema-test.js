@@ -1,11 +1,13 @@
 'use strict';
 
-var Schema = require('../lib/schema'),
-    chai   = require('chai'),
-    expect = chai.expect,
-    Joi    = require('joi'),
-    _      = require('lodash'),
-    sinon  = require('sinon');
+const Schema = require('../lib/schema');
+const chai   = require('chai');
+const expect = chai.expect;
+const Joi    = require('joi');
+const _      = require('lodash');
+const sinon  = require('sinon');
+
+/* global describe,it */
 
 chai.should();
 
@@ -14,49 +16,49 @@ describe('schema', function () {
   describe('setup', function () {
 
     it('should set hash key', function () {
-      var config = {
+      const config = {
         hashKey: 'id'
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.hashKey.should.equal('id');
     });
 
     it('should set hash and range key', function () {
-      var config = {
+      const config = {
         hashKey : 'id',
         rangeKey : 'date'
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.hashKey.should.equal('id');
       s.rangeKey.should.equal('date');
     });
 
     it('should set table name to string', function () {
-      var config = {
+      const config = {
         hashKey : 'id',
         tableName : 'test-table'
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.tableName.should.equal('test-table');
     });
 
     it('should set table name to function', function () {
-      var func = function () { return 'test-table'; };
+      const func = function () { return 'test-table'; };
 
-      var config = {
+      const config = {
         hashKey : 'id',
         tableName : func
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.tableName.should.equal(func);
     });
 
     it('should add timestamps to schema', function () {
-      var config = {
+      const config = {
         hashKey : 'id',
         timestamps : true,
         schema : {
@@ -64,7 +66,7 @@ describe('schema', function () {
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.timestamps.should.be.true;
 
       expect(s._modelSchema.describe().children).to.have.keys(['id', 'createdAt', 'updatedAt']);
@@ -77,7 +79,7 @@ describe('schema', function () {
     });
 
     it('should add timestamps with custom names to schema', function () {
-      var config = {
+      const config = {
         hashKey : 'id',
         timestamps : true,
         createdAt : 'created',
@@ -87,7 +89,7 @@ describe('schema', function () {
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.timestamps.should.be.true;
 
       expect(s._modelSchema.describe().children).to.have.keys(['id', 'created', 'updated']);
@@ -100,7 +102,7 @@ describe('schema', function () {
     });
 
     it('should only add createdAt timestamp ', function () {
-      var config = {
+      const config = {
         hashKey : 'id',
         timestamps : true,
         updatedAt : false,
@@ -109,7 +111,7 @@ describe('schema', function () {
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.timestamps.should.be.true;
 
       expect(s._modelSchema.describe().children).to.have.keys(['id', 'createdAt']);
@@ -121,7 +123,7 @@ describe('schema', function () {
     });
 
     it('should only add updatedAt timestamp ', function () {
-      var config = {
+      const config = {
         hashKey : 'id',
         timestamps : true,
         createdAt : false,
@@ -130,7 +132,7 @@ describe('schema', function () {
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.timestamps.should.be.true;
 
       expect(s._modelSchema.describe().children).to.have.keys(['id', 'updatedAt']);
@@ -142,7 +144,7 @@ describe('schema', function () {
     });
 
     it('should only add custom created timestamp ', function () {
-      var config = {
+      const config = {
         hashKey : 'id',
         timestamps : true,
         createdAt : 'fooCreate',
@@ -152,7 +154,7 @@ describe('schema', function () {
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.timestamps.should.be.true;
 
       expect(s._modelSchema.describe().children).to.have.keys(['id', 'fooCreate']);
@@ -164,42 +166,42 @@ describe('schema', function () {
     });
 
     it('should throw error when hash key is not present', function () {
-      var config = {rangeKey : 'foo'};
+      const config = {rangeKey : 'foo'};
 
       expect(function () {
-        new Schema(config);
-      }).to.throw(/hashKey is required/);
+        return new Schema(config);
+      }).to.throw(/"hashKey" is required/);
 
     });
 
     it('should setup local secondary index when both hash and range keys are given', function () {
-      var config = {
+      const config = {
         hashKey : 'foo',
         indexes : [
           {hashKey : 'foo', rangeKey : 'bar', type:'local', name : 'LocalBarIndex'}
         ]
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.secondaryIndexes.should.include.keys('LocalBarIndex');
       s.globalIndexes.should.be.empty;
     });
 
     it('should setup local secondary index when only range key is given', function () {
-      var config = {
+      const config = {
         hashKey : 'foo',
         indexes : [
           {rangeKey : 'bar', type:'local', name : 'LocalBarIndex'}
         ]
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.secondaryIndexes.should.include.keys('LocalBarIndex');
       s.globalIndexes.should.be.empty;
     });
 
     it('should throw when local index rangeKey isnt present', function () {
-      var config = {
+      const config = {
         hashKey : 'foo',
         indexes : [
           {hashKey : 'foo', type:'local', name : 'LocalBarIndex'}
@@ -207,12 +209,12 @@ describe('schema', function () {
       };
 
       expect(function () {
-        new Schema(config);
+        return new Schema(config);
       }).to.throw(/rangeKey.*missing/);
     });
 
     it('should throw when local index hashKey does not match the tables hashKey', function () {
-      var config = {
+      const config = {
         hashKey : 'foo',
         indexes : [
           {hashKey : 'bar', rangeKey: 'date', type:'local', name : 'LocalDateIndex'}
@@ -220,25 +222,25 @@ describe('schema', function () {
       };
 
       expect(function () {
-        new Schema(config);
-      }).to.throw(/hashKey must be one of context:hashKey/);
+        return new Schema(config);
+      }).to.throw(/"hashKey" must be one of \[context:hashKey\]/);
     });
 
     it('should setup global index', function () {
-      var config = {
+      const config = {
         hashKey : 'foo',
         indexes : [
           {hashKey : 'bar', type:'global', name : 'GlobalBarIndex'}
         ]
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       s.globalIndexes.should.include.keys('GlobalBarIndex');
       s.secondaryIndexes.should.be.empty;
     });
 
     it('should throw when global index hashKey is not present', function () {
-      var config = {
+      const config = {
         hashKey : 'foo',
         indexes : [
           {rangeKey: 'date', type:'global', name : 'GlobalDateIndex'}
@@ -246,19 +248,19 @@ describe('schema', function () {
       };
 
       expect(function () {
-        new Schema(config);
-      }).to.throw(/hashKey is required/);
+        return new Schema(config);
+      }).to.throw(/"hashKey" is required/);
     });
 
     it('should parse schema data types', function () {
-      var config = {
+      const config = {
         hashKey : 'foo',
         schema : Joi.object().keys({
           foo  : Joi.string().default('foobar'),
-          date : Joi.date().default(Date.now),
+          date : Joi.date().default(Date.now, 'use the current time'),
           count: Joi.number(),
           flag: Joi.boolean(),
-          nums : Joi.array().includes(Joi.number()).meta({dynamoType : 'NS'}),
+          nums : Joi.array().items(Joi.number()).meta({dynamoType : 'NS'}),
           items : Joi.array(),
           data : Joi.object().keys({
             stuff : Joi.array().meta({dynamoType : 'SS'}),
@@ -274,7 +276,7 @@ describe('schema', function () {
         })
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
 
       s._modelSchema.should.eql(config.schema);
       s._modelDatatypes.should.eql({
@@ -302,7 +304,7 @@ describe('schema', function () {
 
   describe('#stringSet', function () {
     it('should set as string set', function () {
-      var config = {
+      const config = {
         hashKey : 'email',
         schema : {
           email : Joi.string().email(),
@@ -310,7 +312,7 @@ describe('schema', function () {
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
 
       s._modelDatatypes.should.eql({
         email  : 'S',
@@ -321,7 +323,7 @@ describe('schema', function () {
 
   describe('#numberSet', function () {
     it('should set as number set', function () {
-      var config = {
+      const config = {
         hashKey : 'email',
         schema : {
           email : Joi.string().email(),
@@ -329,7 +331,7 @@ describe('schema', function () {
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
 
       s._modelDatatypes.should.eql({
         email  : 'S',
@@ -340,7 +342,7 @@ describe('schema', function () {
 
   describe('#binarySet', function () {
     it('should set as binary set', function () {
-      var config = {
+      const config = {
         hashKey : 'email',
         schema : {
           email : Joi.string().email(),
@@ -348,7 +350,7 @@ describe('schema', function () {
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
 
       s._modelDatatypes.should.eql({
         email  : 'S',
@@ -360,28 +362,28 @@ describe('schema', function () {
 
   describe('#uuid', function () {
     it('should set as uuid with default uuid function', function () {
-      var config = {
+      const config = {
         hashKey : 'id',
         schema : {
           id : Schema.types.uuid(),
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       expect(s.applyDefaults({}).id).should.not.be.empty;
     });
   });
 
   describe('#timeUUID', function () {
     it('should set as TimeUUID with default v1 uuid function', function () {
-      var config = {
+      const config = {
         hashKey : 'id',
         schema : {
           id : Schema.types.timeUUID(),
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
       expect(s.applyDefaults({}).id).should.not.be.empty;
 
     });
@@ -391,27 +393,27 @@ describe('schema', function () {
   describe('#validate', function () {
 
     it('should return no err for string', function() {
-      var config = {
+      const config = {
         hashKey : 'email',
         schema : {
           email : Joi.string().email().required()
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
 
       expect(s.validate({email: 'foo@bar.com'}).error).to.be.null;
     });
 
     it('should return no error for valid date object', function() {
-      var config = {
+      const config = {
         hashKey : 'created',
         schema : {
           created : Joi.date()
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
 
       expect(s.validate({created: new Date()}).error).to.be.null;
       expect(s.validate({created: Date.now()}).error).to.be.null;
@@ -421,7 +423,7 @@ describe('schema', function () {
 
   describe('#applyDefaults', function () {
     it('should apply default values', function () {
-      var config = {
+      const config = {
         hashKey : 'email',
         schema : {
           email : Joi.string(),
@@ -430,9 +432,9 @@ describe('schema', function () {
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
 
-      var d = s.applyDefaults({email: 'foo@bar.com'});
+      const d = s.applyDefaults({email: 'foo@bar.com'});
 
       d.email.should.equal('foo@bar.com');
       d.name.should.equal('Foo Bar');
@@ -440,23 +442,23 @@ describe('schema', function () {
     });
 
     it('should return result of default functions', function () {
-      var clock = sinon.useFakeTimers(Date.now());
+      const clock = sinon.useFakeTimers(Date.now());
 
-      var config = {
+      const config = {
         hashKey : 'email',
         schema : {
           email   : Joi.string(),
-          created : Joi.date().default(Date.now),
+          created : Joi.date().default(Date.now, 'use current time'),
           data : {
             name : Joi.string().default('Tim Tester'),
-            nick : Joi.string().default(_.constant('foo bar'))
+            nick : Joi.string().default(_.constant('foo bar'), 'use lodash constant')
           }
         }
       };
 
-      var s = new Schema(config);
+      const s = new Schema(config);
 
-      var d = s.applyDefaults({email: 'foo@bar.com', data : {} });
+      const d = s.applyDefaults({email: 'foo@bar.com', data : {} });
 
       d.should.eql({
         email : 'foo@bar.com',
