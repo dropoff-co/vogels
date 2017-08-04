@@ -14,7 +14,7 @@ chai.should();
 
 describe('Serializer', function () {
   const docClient = helper.mockDocClient();
-  const kmsMock = helper.mockKMS();
+  const encryptionPlugin = helper.encryptionPlugin();
 
   describe('#buildKeys', function () {
 
@@ -290,7 +290,7 @@ describe('Serializer', function () {
 
     it('should serialize encrypted attribute', function(next) {
       const KeyId = 'eeeeeeee-ffff-1111-2222-dddddddddddd';
-      serializer.setKMS(kmsMock);
+      serializer.setEncryptionPlugin(encryptionPlugin);
 
       const config = {
         hashKey: 'encrypted',
@@ -302,18 +302,15 @@ describe('Serializer', function () {
       const s = new Schema(config);
       const stringToEncrypt = 'This string should be encrypted';
 
-      serializer.serializeItem(s, {encrypted: stringToEncrypt}, function(error, data) {
+      serializer.serializeItem(s, {encrypted: stringToEncrypt}, function(error, serialized) {
         should.not.exist(error);
-        should.exist(data);
-        should.exist(data.encrypted);
+        should.exist(serialized);
+        should.exist(serialized.encrypted);
 
-        kmsMock.decrypt({
-          CiphertextBlob : new Buffer(data.encrypted, 'base64')
-        }, function(error, data) {
+        encryptionPlugin.decrypt(KeyId, serialized.encrypted, function(error, data) {
           should.not.exist(error);
           should.exist(data);
-          should.exist(data.Plaintext);
-          stringToEncrypt.should.eql(data.Plaintext.toString('utf8'));
+          stringToEncrypt.should.eql(data);
           next();
         });
       });

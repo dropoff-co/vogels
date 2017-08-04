@@ -6,26 +6,17 @@ const Table  = require('../lib/table');
 const _      = require('lodash');
 const bunyan = require('bunyan');
 
-module.exports.mockKMS = function() {
-  const kmsMock = new AWS.KMS({
-    region: 'us-west-2',
-    apiVersion: '2014-11-01'
-  });
-
-  kmsMock.encrypt = function(params, callback) {
-    const Plaintext = params.Plaintext;
-
-    const CiphertextBlob = new Buffer(Plaintext, 'utf8');
-    callback(void(0), { CiphertextBlob });
+module.exports.encryptionPlugin = function() {
+  return {
+    encrypt : function(key, value, callback) {
+      const buffer = new Buffer(value, 'utf8');
+      callback(void(0), buffer.toString('base64'));
+    },
+    decrypt : function(key, value, callback) {
+      const buffer = new Buffer(value, 'base64');
+      callback(void(0), buffer.toString('utf8'));
+    }
   };
-
-  kmsMock.decrypt = function(params, callback) {
-    const CiphertextBlob = params.CiphertextBlob;
-    const Plaintext = CiphertextBlob.toString('utf8');
-    callback(void(0), { Plaintext });
-  };
-
-  return kmsMock;
 };
 
 module.exports.mockDynamoDB = function () {
