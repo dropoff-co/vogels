@@ -1,14 +1,33 @@
 'use strict';
 
-var sinon  = require('sinon'),
-    AWS    = require('aws-sdk'),
-    Table  = require('../lib/table'),
-    _      = require('lodash'),
-    bunyan = require('bunyan');
+const sinon  = require('sinon');
+const AWS    = require('aws-sdk');
+const Table  = require('../lib/table');
+const _      = require('lodash');
+const bunyan = require('bunyan');
 
-exports.mockDynamoDB = function () {
-  var opts = { endpoint : 'http://dynamodb-local:8000', apiVersion: '2012-08-10' };
-  var db = new AWS.DynamoDB(opts);
+module.exports.encryptionPlugin = function() {
+  return {
+    encrypt : function(key, value, callback) {
+      const buffer = new Buffer(value, 'utf8');
+      callback(void(0), buffer.toString('base64'));
+    },
+    decrypt : function(key, value, callback) {
+      const buffer = new Buffer(value, 'base64');
+      callback(void(0), buffer.toString('utf8'));
+    }
+  };
+};
+
+module.exports.mockDynamoDB = function () {
+  const opts = {
+    endpoint : 'http://127.0.0.1:8000',
+    apiVersion: '2012-08-10',
+    region: 'us-west-2',
+    accessKeyId: 'ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ',
+    secretAccessKey: 'ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ'
+  };
+  const db = new AWS.DynamoDB(opts);
 
   db.scan          = sinon.stub();
   db.putItem       = sinon.stub();
@@ -26,15 +45,21 @@ exports.mockDynamoDB = function () {
   return db;
 };
 
-exports.realDynamoDB = function () {
-  var opts = { endpoint : 'http://dynamodb-local:8000', apiVersion: '2012-08-10' };
+module.exports.realDynamoDB = function () {
+  const opts = {
+    endpoint : 'http://127.0.0.1:8000',
+    apiVersion: '2012-08-10',
+    region: 'us-west-2',
+    accessKeyId: 'ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ',
+    secretAccessKey: 'ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ'
+  };
   return new AWS.DynamoDB(opts);
 };
 
-exports.mockDocClient = function () {
-  var client = new AWS.DynamoDB.DocumentClient({service : exports.mockDynamoDB()});
+module.exports.mockDocClient = function () {
+  const client = new AWS.DynamoDB.DocumentClient({service : exports.mockDynamoDB()});
 
-  var operations= [
+  const operations= [
     'batchGet',
     'batchWrite',
     'put',
@@ -65,35 +90,31 @@ exports.mockDocClient = function () {
   return client;
 };
 
-exports.mockSerializer = function () {
-  var serializer = {
+module.exports.mockSerializer = function () {
+  return {
     buildKey               : sinon.stub(),
     deserializeItem        : sinon.stub(),
     serializeItem          : sinon.stub(),
     serializeItemForUpdate : sinon.stub()
   };
-
-  return serializer;
 };
 
-exports.mockTable = function () {
+module.exports.mockTable = function () {
   return sinon.createStubInstance(Table);
 };
 
-exports.fakeUUID = function () {
-  var uuid = {
+module.exports.fakeUUID = function () {
+  return {
     v1: sinon.stub(),
     v4: sinon.stub()
   };
-
-  return uuid;
 };
 
-exports.randomName = function (prefix) {
+module.exports.randomName = function (prefix) {
   return prefix + '_' + Date.now() + '.' + _.random(1000);
 };
 
-exports.testLogger = function() {
+module.exports.testLogger = function() {
   return bunyan.createLogger({
     name: 'vogels-tests',
     serializers : {err: bunyan.stdSerializers.err},
